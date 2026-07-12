@@ -59,9 +59,13 @@ export function calculateBurnDown(
 }
 
 /**
- * Detects Smurfing: Time-Window Clustering algorithm.
- * Scans the array for 3+ transactions of similar high amounts (e.g. within 5% variance of 10,000 BDT)
- * occurring within a 10-minute window on the same provider.
+ * Detects Smurfing: Time-Window Clustering / Smurfing Heuristic.
+ * What it does: Detects coordinated, suspicious financial behavior (like "smurfing"—breaking a large cash-out into multiple smaller transactions to avoid triggering standard limits).
+ * How the math works:
+ * It uses a grouping logic called Clustering combined with Variance limits.
+ * The algorithm constantly scans a sliding 10-minute window of the transaction feed.
+ * It looks for a high frequency (e.g., N >= 3) of transactions coming from the same provider.
+ * It checks the Variance (difference) in the amounts. If 3 or more transactions are within a tight 5% variance of a high-value amount (like 9,999, 10,000, and 9,950 Tk), the algorithm mathematically flags them as a "Cluster".
  */
 export function detectSmurfing(transactions: Transaction[]): {
   isAnomaly: boolean;
@@ -69,16 +73,17 @@ export function detectSmurfing(transactions: Transaction[]): {
   flaggedTxIds: string[];
   provider?: 'bKash' | 'Nagad';
 } {
-  const windowMs = 10 * 60 * 1000; // 10 minutes
-  const targetAmount = 10000;
-  const variance = 0.05; // 5%
-  const minAmount = targetAmount * (1 - variance); // 9500 BDT
-  const maxAmount = targetAmount * (1 + variance); // 10500 BDT
+  const windowMs = 10 * 60 * 1000; // Sliding 10-minute window
+  const targetHighValueAmount = 10000; // High-value amount target (e.g., 10,000 Tk)
+  const varianceLimit = 0.05; // Tight 5% variance limit
+  const minAmount = targetHighValueAmount * (1 - varianceLimit); // 9,500 BDT
+  const maxAmount = targetHighValueAmount * (1 + varianceLimit); // 10,500 BDT
 
-  // Group transactions by provider and filter for candidates (cash_out within range)
+  // Group transactions by provider (bKash or Nagad)
   const providers: ('bKash' | 'Nagad')[] = ['bKash', 'Nagad'];
 
   for (const provider of providers) {
+    // Filter cash_out transactions that fall within the tight 5% variance of the high-value target amount
     const candidates = transactions.filter(
       tx =>
         tx.provider === provider &&
@@ -87,17 +92,21 @@ export function detectSmurfing(transactions: Transaction[]): {
         tx.amount <= maxAmount
     );
 
-    // For each candidate, find other candidates within a 10-minute window
+    // Scan for clusters using the sliding 10-minute window
     for (let i = 0; i < candidates.length; i++) {
       const baseTx = candidates[i];
+      
+      // Group candidates occurring within a 10-minute window of the base transaction
       const cluster = candidates.filter(
         tx => Math.abs(tx.timestamp - baseTx.timestamp) <= windowMs
       );
 
+      // Math Check: If high frequency (N >= 3) is met within the window, flag the Cluster
       if (cluster.length >= 3) {
         const flaggedTxIds = cluster.map(tx => tx.id);
-        const amounts = cluster.map(tx => tx.amount.toLocaleString());
-        const evidence = `Detected ${cluster.length} Cash-Out transactions of near-identical amounts (${amounts.join(', ')} BDT) on ${provider} within a 10-minute window, suggesting structural splitting (smurfing).`;
+        const amounts = cluster.map(tx => `${tx.amount} Tk`);
+        
+        const evidence = `Detected ${cluster.length} Cash-Out transactions of near-identical amounts (${amounts.join(', ')}) on ${provider} within a 10-minute sliding window, violating the 5% variance threshold around ${targetHighValueAmount} Tk and indicating coordinated transaction splitting (smurfing).`;
         
         return {
           isAnomaly: true,

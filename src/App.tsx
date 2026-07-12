@@ -575,7 +575,7 @@ export default function App() {
             onClick={handleInjectSmurfing}
             className="px-3 py-1.5 text-xs font-semibold bg-rose-950/40 hover:bg-rose-950/70 text-rose-400 border border-rose-900/40 rounded-md transition-all duration-300 flex items-center gap-1.5"
           >
-            <AlertOctagon className="w-3.5 h-3.5" /> Inject Smurfing
+            <AlertOctagon className="w-3.5 h-3.5" /> Simulate Anomaly Detection
           </button>
           
           <button 
