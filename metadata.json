@@ -1,0 +1,6 @@
+{
+  "name": "FlowSense_AI",
+  "description": "Super Agent Liquidity & Risk Intelligence Platform for Mobile Financial Services (MFS)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
